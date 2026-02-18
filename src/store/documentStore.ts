@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { Document, ParseStatus } from '../types/document';
+import { Document, ParseStatus, ParseError } from '../types/document';
+import { parseJson5, serializeNode, setNodeValue } from '../core/parser';
+import type { JsonValue } from '../core/parser';
 
 interface DocumentStore {
   document: Document | null;
@@ -12,6 +14,8 @@ interface DocumentStore {
   openFile: () => Promise<void>;
   saveFile: () => Promise<void>;
   saveFileAs: () => Promise<void>;
+  updateNodeValue: (key: string, value: JsonValue) => boolean;
+  getSerializedContent: () => string | null;
 }
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
@@ -35,15 +39,33 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
       set({ parseStatus: 'parsing', error: null });
       const result = await window.electronAPI.file.open();
       if (result) {
-        const doc: Document = {
-          filePath: result.filePath,
-          originalContent: result.content,
-          root: null,
-          isModified: false,
-          encoding: result.encoding,
-          format: result.filePath.endsWith('.json5') ? 'json5' : 'json',
-        };
-        set({ document: doc, parseStatus: 'success' });
+        const parseResult = parseJson5(result.content);
+        
+        if (parseResult.success) {
+          const doc: Document = {
+            filePath: result.filePath,
+            originalContent: result.content,
+            root: null,
+            jsonNode: parseResult.node,
+            parseError: null,
+            isModified: false,
+            encoding: result.encoding,
+            format: result.filePath.endsWith('.json5') ? 'json5' : 'json',
+          };
+          set({ document: doc, parseStatus: 'success' });
+        } else {
+          const doc: Document = {
+            filePath: result.filePath,
+            originalContent: result.content,
+            root: null,
+            jsonNode: null,
+            parseError: parseResult.error as ParseError,
+            isModified: false,
+            encoding: result.encoding,
+            format: result.filePath.endsWith('.json5') ? 'json5' : 'json',
+          };
+          set({ document: doc, parseStatus: 'error', error: parseResult.error.message });
+        }
       } else {
         set({ parseStatus: 'idle' });
       }
@@ -57,9 +79,15 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     if (!document?.filePath) return;
 
     try {
-      const content = document.originalContent;
-      await window.electronAPI.file.save(document.filePath, content);
-      set({ document: { ...document, isModified: false } });
+      const content = document.jsonNode 
+        ? serializeNode(document.jsonNode) 
+        : document.originalContent;
+      const result = await window.electronAPI.file.save(document.filePath, content);
+      if (result.success) {
+        set({ document: { ...document, isModified: false, originalContent: content } });
+      } else {
+        set({ error: result.error || '保存失败' });
+      }
     } catch (error) {
       set({ error: String(error) });
     }
@@ -70,7 +98,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     if (!document) return;
 
     try {
-      const content = document.originalContent;
+      const content = document.jsonNode 
+        ? serializeNode(document.jsonNode) 
+        : document.originalContent;
       const newFilePath = await window.electronAPI.file.saveAs(content, document.filePath || undefined);
       if (newFilePath) {
         set({
@@ -78,6 +108,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
             ...document,
             filePath: newFilePath,
             isModified: false,
+            originalContent: content,
             format: newFilePath.endsWith('.json5') ? 'json5' : 'json',
           },
         });
@@ -85,5 +116,27 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     } catch (error) {
       set({ error: String(error) });
     }
+  },
+
+  updateNodeValue: (key: string, value: JsonValue) => {
+    const { document } = get();
+    if (!document?.jsonNode) return false;
+
+    try {
+      const success = setNodeValue(document.jsonNode, key, value);
+      if (success) {
+        set({ document: { ...document, isModified: true } });
+      }
+      return success;
+    } catch (error) {
+      set({ error: String(error) });
+      return false;
+    }
+  },
+
+  getSerializedContent: () => {
+    const { document } = get();
+    if (!document?.jsonNode) return null;
+    return serializeNode(document.jsonNode);
   },
 }));

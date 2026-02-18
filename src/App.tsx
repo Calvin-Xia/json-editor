@@ -3,6 +3,9 @@ import Toolbar from './components/Toolbar';
 import TreeView from './components/TreeView';
 import FormEditor from './components/FormEditor';
 import StatusBar from './components/StatusBar';
+import RawPreview from './components/RawPreview';
+import ModifyDemo from './components/ModifyDemo';
+import ParseError from './components/ParseError';
 import './styles/index.css';
 
 const App: React.FC = () => {
@@ -13,8 +16,13 @@ const App: React.FC = () => {
         <div className="left-panel">
           <TreeView />
         </div>
-        <div className="right-panel">
+        <div className="center-panel">
           <FormEditor />
+          <ModifyDemo />
+        </div>
+        <div className="right-panel">
+          <ParseError />
+          <RawPreview />
         </div>
       </div>
       <StatusBar />

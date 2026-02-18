@@ -121,10 +121,23 @@ body {
   overflow: hidden;
 }
 
-.right-panel {
+.center-panel {
   flex: 1;
+  min-width: 300px;
+  background-color: var(--content-bg);
+  border-right: 1px solid var(--border-color);
+  overflow: auto;
+  padding: var(--spacing-md);
+}
+
+.right-panel {
+  width: 400px;
+  min-width: 300px;
+  max-width: 600px;
   background-color: var(--content-bg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .tree-view,
@@ -189,6 +202,36 @@ body {
   opacity: 0.7;
 }
 
+.error-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: #fff5f5;
+  border-bottom: 1px solid var(--error-color);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.error-toast:hover {
+  opacity: 0.9;
+}
+
+.error-toast-icon {
+  font-size: var(--font-size-base);
+}
+
+.error-toast-message {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--error-color);
+}
+
+.error-toast-close {
+  font-size: var(--font-size-xs);
+  color: var(--text-color-secondary);
+}
+
 .status-bar {
   display: flex;
   align-items: center;
@@ -249,4 +292,163 @@ body {
 
 .parse-status.status-loading {
   color: var(--primary-color);
+}
+
+.raw-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.raw-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.raw-preview-header h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.format-badge {
+  padding: 2px 8px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.raw-preview-content {
+  flex: 1;
+  width: 100%;
+  padding: var(--spacing-md);
+  background-color: var(--input-bg);
+  border: none;
+  color: var(--text-color);
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  overflow: auto;
+}
+
+.modify-demo {
+  padding: var(--spacing-md);
+  background-color: var(--sidebar-bg);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-md);
+}
+
+.modify-demo h4 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+}
+
+.modify-demo-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.modify-demo-form .form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.modify-demo-form label {
+  width: 50px;
+  font-size: var(--font-size-sm);
+  color: var(--text-color-secondary);
+}
+
+.modify-demo-form input {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
+.modify-demo-form input:focus {
+  border-color: var(--primary-color);
+}
+
+.modify-demo .error-tip {
+  color: var(--error-color);
+  font-size: var(--font-size-xs);
+  padding: var(--spacing-xs) 0;
+}
+
+.modify-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.modify-btn:hover {
+  background-color: var(--primary-color-hover);
+}
+
+.modify-demo .hint {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-color-secondary);
+}
+
+.parse-error {
+  padding: var(--spacing-md);
+  background-color: #fff5f5;
+  border-bottom: 1px solid var(--error-color);
+}
+
+.parse-error-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.error-icon {
+  font-size: var(--font-size-lg);
+}
+
+.error-title {
+  font-weight: 600;
+  color: var(--error-color);
+}
+
+.parse-error-details {
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.error-location,
+.error-message {
+  margin-bottom: var(--spacing-xs);
+}
+
+.parse-error-hint {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-color-secondary);
 }

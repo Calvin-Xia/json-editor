@@ -26,11 +26,13 @@ export function useFileOperations() {
       if (!document?.filePath) return false;
 
       try {
-        const success = await window.electronAPI.file.save(document.filePath, content);
-        if (success) {
+        const result = await window.electronAPI.file.save(document.filePath, content);
+        if (result.success) {
           setModified(false);
+        } else {
+          setError(result.error || '保存失败');
         }
-        return success;
+        return result.success;
       } catch (error) {
         setError(String(error));
         return false;

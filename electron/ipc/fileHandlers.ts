@@ -36,8 +36,16 @@ function getRecentFilesStore(): string[] {
 }
 
 function saveRecentFilesStore(files: string[]): void {
-  const storePath = path.join(app.getPath('userData'), 'recent-files.json');
-  fs.writeFileSync(storePath, JSON.stringify(files, null, 2));
+  try {
+    const storePath = path.join(app.getPath('userData'), 'recent-files.json');
+    const storeDir = path.dirname(storePath);
+    if (!fs.existsSync(storeDir)) {
+      fs.mkdirSync(storeDir, { recursive: true });
+    }
+    fs.writeFileSync(storePath, JSON.stringify(files, null, 2));
+  } catch (error) {
+    console.error('Failed to save recent files store:', error);
+  }
 }
 
 function addToRecentFiles(filePath: string): void {
@@ -78,13 +86,66 @@ export async function handleFileOpen(): Promise<FileOpenResult | null> {
   }
 }
 
-export async function handleFileSave(filePath: string, content: string): Promise<boolean> {
+interface SaveResult {
+  success: boolean;
+  error?: string;
+}
+
+function getErrorMessage(code: string | undefined): string {
+  const errorMessages: Record<string, string> = {
+    EPERM: '权限不足：请检查杀毒软件设置或以管理员身份运行应用',
+    EACCES: '访问被拒绝：请检查文件权限设置',
+    EBUSY: '文件被占用：请关闭其他正在使用此文件的程序',
+    ENOENT: '文件不存在',
+    ENOSPC: '磁盘空间不足',
+    EROFS: '文件系统为只读',
+  };
+  return errorMessages[code || ''] || '保存失败，请稍后重试';
+}
+
+export async function handleFileSave(filePath: string, content: string): Promise<SaveResult> {
   try {
-    fs.writeFileSync(filePath, content, 'utf-8');
-    return true;
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' };
+    }
+
+    try {
+      fs.accessSync(filePath, fs.constants.W_OK);
+    } catch {
+      return { success: false, error: '文件不可写，请检查文件权限或是否被其他程序占用' };
+    }
+
+    const stats = fs.statSync(filePath);
+    if ((stats.mode & 0o200) === 0) {
+      return { success: false, error: '文件为只读属性，请取消只读后重试' };
+    }
+
+    const tmpPath = `${filePath}.${Date.now()}.tmp`;
+
+    try {
+      fs.writeFileSync(tmpPath, content, 'utf-8');
+
+      try {
+        fs.renameSync(tmpPath, filePath);
+        return { success: true };
+      } catch {
+        fs.copyFileSync(tmpPath, filePath);
+        fs.unlinkSync(tmpPath);
+        return { success: true };
+      }
+    } catch (writeError) {
+      try {
+        if (fs.existsSync(tmpPath)) {
+          fs.unlinkSync(tmpPath);
+        }
+      } catch {}
+
+      throw writeError;
+    }
   } catch (error) {
+    const err = error as NodeJS.ErrnoException;
     console.error('Failed to save file:', error);
-    return false;
+    return { success: false, error: getErrorMessage(err.code) };
   }
 }
 

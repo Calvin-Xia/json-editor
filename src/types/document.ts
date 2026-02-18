@@ -1,3 +1,5 @@
+import type { JsonNode as CroctJsonNode } from '@croct/json5-parser';
+
 export type JSONValueType = 'object' | 'array' | 'string' | 'number' | 'boolean' | 'null';
 
 export interface JSONNodeMeta {
@@ -25,10 +27,20 @@ export interface JSONNode {
   order: number;
 }
 
+export type JsonNode = CroctJsonNode;
+
+export interface ParseError {
+  line: number;
+  column: number;
+  message: string;
+}
+
 export interface Document {
   filePath: string | null;
   originalContent: string;
   root: JSONNode | null;
+  jsonNode: JsonNode | null;
+  parseError: ParseError | null;
   isModified: boolean;
   encoding: string;
   format: 'json' | 'json5';

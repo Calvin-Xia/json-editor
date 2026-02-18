@@ -4,6 +4,11 @@ export interface FileOpenResult {
   encoding: string;
 }
 
+export interface SaveResult {
+  success: boolean;
+  error?: string;
+}
+
 export interface AutosaveData {
   content: string;
   timestamp: number;
@@ -18,7 +23,7 @@ export interface VersionInfo {
 export interface ElectronAPI {
   file: {
     open: () => Promise<FileOpenResult | null>;
-    save: (filePath: string, content: string) => Promise<boolean>;
+    save: (filePath: string, content: string) => Promise<SaveResult>;
     saveAs: (content: string, defaultPath?: string) => Promise<string | null>;
     getRecent: () => Promise<string[]>;
   };
