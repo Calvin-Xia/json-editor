@@ -1,10 +1,18 @@
 import { useEffect, useCallback } from 'react';
-import { useDocumentStore } from '../store/documentStore';
+import { useStore } from 'zustand';
+import { useDocumentStore, temporalStore } from '../store/documentStore';
 
 export function useIPC(): void {
   const { openFile, saveFile, saveFileAs } = useDocumentStore();
+  const { undo, redo } = useStore(temporalStore);
 
   useEffect(() => {
+    // Guard: electronAPI is only available in Electron context (via preload script)
+    if (!window.electronAPI?.menu) {
+      console.warn('electronAPI not available - running in web-only mode');
+      return;
+    }
+
     const unsubscribers: (() => void)[] = [];
 
     const unsubscribeOpen = window.electronAPI.menu.onOpen(() => {
@@ -23,12 +31,12 @@ export function useIPC(): void {
     unsubscribers.push(unsubscribeSaveAs);
 
     const unsubscribeUndo = window.electronAPI.menu.onUndo(() => {
-      console.log('Undo from menu - placeholder');
+      undo();
     });
     unsubscribers.push(unsubscribeUndo);
 
     const unsubscribeRedo = window.electronAPI.menu.onRedo(() => {
-      console.log('Redo from menu - placeholder');
+      redo();
     });
     unsubscribers.push(unsubscribeRedo);
 

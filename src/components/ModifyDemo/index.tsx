@@ -23,7 +23,7 @@ const ModifyDemo: React.FC = () => {
       parsedValue = value;
     }
     
-    const success = updateNodeValue(key.trim(), parsedValue);
+    const success = updateNodeValue('', key.trim(), parsedValue);
     if (!success) {
       setErrorMsg('修改失败，请检查键名是否存在');
     }

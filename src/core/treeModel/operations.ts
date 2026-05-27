@@ -60,8 +60,9 @@ export function searchNodes(
   function searchNode(node: TreeNode): void {
     const keyMatch = node.key.toLowerCase().includes(normalizedQuery);
     const pathMatch = node.path.toLowerCase().includes(normalizedQuery);
+    const valueMatch = node.previewText.toLowerCase().includes(normalizedQuery);
     
-    if (keyMatch || pathMatch) {
+    if (keyMatch || pathMatch || valueMatch) {
       matchedPaths.add(node.path);
     }
     
@@ -84,6 +85,9 @@ export function computeVisiblePaths(matchedPaths: Set<string>): Set<string> {
       visiblePaths.add(ancestor);
     }
   }
+  
+  // Root node must always be visible
+  visiblePaths.add('');
   
   return visiblePaths;
 }

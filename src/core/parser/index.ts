@@ -17,3 +17,5 @@ export type {
   JsonNode,
   JsonValue,
 } from './json5Parser';
+
+export { resolveNodeAtPath } from './nodeResolver';

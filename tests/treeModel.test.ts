@@ -498,9 +498,10 @@ describe('TreeModel Operations', () => {
       expect(visiblePaths.has('/x')).toBe(true);
     });
 
-    it('should return empty set for empty input', () => {
+    it('should return only root for empty input', () => {
       const visiblePaths = computeVisiblePaths(new Set());
-      expect(visiblePaths.size).toBe(0);
+      expect(visiblePaths.size).toBe(1);
+      expect(visiblePaths.has('')).toBe(true);
     });
   });
 

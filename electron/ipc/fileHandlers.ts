@@ -241,7 +241,21 @@ export async function handleVersionList(filePath: string): Promise<VersionInfo[]
 
 export async function handleVersionRestore(filePath: string, versionId: string): Promise<string> {
   const versionDir = getVersionDir(filePath);
+
+  // Prevent path traversal attacks
+  if (versionId.includes('..') || versionId.includes('/') || versionId.includes('\\') || versionId.includes('\0')) {
+    throw new Error('Invalid version ID');
+  }
+
   const versionPath = path.join(versionDir, versionId);
+
+  // Verify the resolved path is within the version directory
+  const resolvedPath = path.resolve(versionPath);
+  const resolvedDir = path.resolve(versionDir);
+  if (!resolvedPath.startsWith(resolvedDir + path.sep) && resolvedPath !== resolvedDir) {
+    throw new Error('Invalid version path');
+  }
+
   try {
     const content = fs.readFileSync(versionPath, 'utf-8');
     return content;

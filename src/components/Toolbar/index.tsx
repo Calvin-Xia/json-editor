@@ -1,8 +1,16 @@
 import React from 'react';
-import { useDocumentStore } from '../../store/documentStore';
+import { useStore } from 'zustand';
+import { useDocumentStore, temporalStore } from '../../store/documentStore';
+import { useTreeStore } from '../../store/treeStore';
 
-const Toolbar: React.FC = () => {
+interface ToolbarProps {
+  onVersionHistory?: () => void;
+}
+
+const Toolbar: React.FC<ToolbarProps> = ({ onVersionHistory }) => {
   const { openFile, saveFile, saveFileAs, document } = useDocumentStore();
+  const { searchQuery, setSearchQuery } = useTreeStore();
+  const { undo, redo, pastStates, futureStates } = useStore(temporalStore);
 
   const handleOpen = async () => {
     await openFile();
@@ -17,11 +25,11 @@ const Toolbar: React.FC = () => {
   };
 
   const handleUndo = () => {
-    console.log('Undo clicked - placeholder');
+    undo();
   };
 
   const handleRedo = () => {
-    console.log('Redo clicked - placeholder');
+    redo();
   };
 
   const handleSettings = () => {
@@ -54,11 +62,11 @@ const Toolbar: React.FC = () => {
           <span>另存为</span>
         </button>
         <div className="toolbar-divider"></div>
-        <button className="toolbar-btn" onClick={handleUndo} title="撤销 (Ctrl+Z)">
+        <button className="toolbar-btn" onClick={handleUndo} disabled={pastStates.length === 0} title="撤销 (Ctrl+Z)">
           <span className="icon">↩️</span>
           <span>撤销</span>
         </button>
-        <button className="toolbar-btn" onClick={handleRedo} title="重做 (Ctrl+Y)">
+        <button className="toolbar-btn" onClick={handleRedo} disabled={futureStates.length === 0} title="重做 (Ctrl+Y)">
           <span className="icon">↪️</span>
           <span>重做</span>
         </button>
@@ -68,10 +76,21 @@ const Toolbar: React.FC = () => {
           type="text"
           className="search-input"
           placeholder="搜索字段..."
-          onChange={(e) => console.log('Search:', e.target.value)}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
       <div className="toolbar-right">
+        <button
+          className="toolbar-btn"
+          onClick={onVersionHistory}
+          disabled={!document?.filePath}
+          title="版本历史"
+        >
+          <span className="icon">🕐</span>
+          <span>版本历史</span>
+        </button>
+        <div className="toolbar-divider"></div>
         <button className="toolbar-btn" onClick={handleSettings} title="设置">
           <span className="icon">⚙️</span>
           <span>设置</span>

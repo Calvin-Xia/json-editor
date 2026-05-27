@@ -40,6 +40,24 @@
   --primary-color: #007acc;
   --primary-hover-color: #005a9e;
 
+  /* Semantic aliases for component usage */
+  --bg-primary: var(--content-bg);
+  --bg-secondary: var(--sidebar-bg);
+  --bg-tertiary: var(--header-bg);
+  --bg-hover: #e8e8e8;
+
+  --text-primary: var(--text-color);
+  --text-secondary: var(--text-color-secondary);
+  --text-muted: #999999;
+
+  --accent-color: var(--primary-color);
+  --accent-light: #e6f3ff;
+
+  /* Search / highlight colors */
+  --match-light: #fff3cd;
+  --highlight-bg: #fff59d;
+  --highlight-text: #333333;
+
   --success-color: #4caf50;
   --warning-color: #ff9800;
   --error-color: #f44336;
