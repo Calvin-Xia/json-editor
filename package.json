@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --project tsconfig.node.json && vite build",
+    "build": "vite build && tsc --project tsconfig.node.json",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:8082 && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "electron:build:portable": "npm run build && electron-builder --win dir && pwsh -Command \"Compress-Archive -Path 'release/win-unpacked/*' -DestinationPath 'release/JSON-Editor-portable.zip' -Force\"",
