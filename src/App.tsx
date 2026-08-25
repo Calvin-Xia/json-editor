@@ -25,6 +25,16 @@ const App: React.FC = () => {
   const { undo, redo } = useStore(temporalStore);
 
   useEffect(() => {
+    // Only attach DOM keydown handlers when the Electron application menu is unavailable.
+    // In Electron mode, the menu accelerator (`Ctrl+Z` / `Ctrl+Y`) consumes the keystroke before
+    // it reaches the webContents and forwards it via the `menu:undo` / `menu:redo` IPC channel
+    // handled by useIPC(). Adding a duplicate DOM listener here would fire undo/redo twice per
+    // keystroke. In browser-only mode (no Electron, no menu) we still need the DOM listener.
+    const hasElectronMenu =
+      typeof window !== 'undefined' &&
+      typeof window.electronAPI?.menu !== 'undefined';
+    if (hasElectronMenu) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
