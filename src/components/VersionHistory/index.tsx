@@ -76,7 +76,6 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({ isOpen, onClose }) => {
       const restoredDoc: Document = {
         filePath: document.filePath,
         originalContent: versionContent,
-        root: null,
         jsonNode: parseResult.node,
         parseError: null,
         isModified: true,
@@ -90,7 +89,6 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({ isOpen, onClose }) => {
       const errorDoc: Document = {
         filePath: document.filePath,
         originalContent: versionContent,
-        root: null,
         jsonNode: null,
         parseError: parseResult.error,
         isModified: true,

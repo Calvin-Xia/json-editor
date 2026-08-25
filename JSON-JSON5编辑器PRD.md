@@ -554,3 +554,54 @@ json-editor/
 |------|------|------|----------|
 | v1.0 | 2026-02-18 | - | 初始版本 |
 
+---
+
+## 十、实现状态对照
+
+> 本节记录 PRD 中每一项功能/验收点的实际实现状态，便于后续 review 与 release sign-off。
+
+### 10.1 MVP 状态
+
+| 编号 | 功能 | 实现状态 | 备注 |
+|------|------|----------|------|
+| M1 | 文件打开（对话框/拖拽/剪贴板粘贴） | ✅ | DropBar 处理 .json/.json5 扩展名校验（SEC-002 已修复） |
+| M2 | JSON/JSON5 解析 | ✅ | `src/core/parser/json5Parser.ts`，错误用判别式联合返回 |
+| M3 | 树形导航 | ✅ | `src/components/TreeView/`，含搜索高亮 |
+| M4 | 基础编辑 string/number/boolean/null | ✅ | `FormEditor/ValueInput.tsx`：Enter 提交、Escape 还原、数字带校验 |
+| M5 | Object 新增字段 | ✅ | `AddFieldForm` 拒绝空/重复键名 |
+| M6 | Array 基础操作（增/删） | ✅ | `addArrayItem`/`deleteArrayItem` |
+| M7 | 保存文件（覆盖/另存为） | ✅ | 原子写：.tmp → rename，fallback copy+unlink |
+| M8 | JSON5 无损写回 | ✅ | 依赖 `@croct/json5-parser` 在原 AST 上 mutate |
+| M9 | Key 顺序保留 | ✅ | 由 M8 隐式保证 |
+| M10 | 差异预览 | ✅ | `DiffPreview`：路径级 + 文本级两个 Tab |
+| M11 | 基础校验（空 key、重复 key） | ✅ | `src/core/validation/index.ts` |
+
+### 10.2 Should 状态
+
+| 编号 | 功能 | 实现状态 | 备注 |
+|------|------|----------|------|
+| S1 | Undo/Redo | ✅ | zundo + 自定义 partialize：序列化 `_snapshot` 比较，避免循环引用 |
+| S2 | 自动保存 + 崩溃恢复 | ✅ | `useAutosave` 5s debounce；`RecoveryDialog` 启动时检测 `.tmp` |
+| S3 | 版本历史（创建/列表/预览/回滚/自动清理） | ✅ | **v1.0.1 补完 `handleVersionCreate`，PRDV1/V5 现在真正可用** |
+| S4 | Array 排序（上移/下移） | ✅ | `moveArrayElement` |
+| S5 | Mixed Array 处理策略 | ✅ | `isMixedArray`，每元素独立类型选择 |
+| S6 | 导出节点片段 | ✅ | `exportNodeFragment` 写入 store；**v1.0.1 接 FormEditor UI** |
+| S7 | 搜索字段（key/path） | ✅ | 不区分大小写，递归匹配 key/path/previewText |
+| S8 | 扩展校验（数字合法性、必填） | ✅（部分） | 数字合法性校验；必填字段未实现（可作为后续扩展） |
+| S9 | 保留未知字段 | ✅ | 由 M8 隐式保证 |
+
+### 10.3 v1.0.1 增量修复（2026-05）
+
+| 类别 | 问题 | 修复 |
+|------|------|------|
+| P0 | 版本历史只有 list/restore，无 create —— 用户永远看不到版本 | 新增 `handleVersionCreate`，每次成功 save 自动快照预保存内容；超过 20 个自动 prune |
+| P1 | `uiStore` 整个文件是死代码（无消费者） | 替换为 deprecation stub；AGENTS.md/README.md 同步更新 |
+| P1 | `JSONNodeMeta` / `JSONNode`（本地版本）等类型定义在 `document.ts` 中从未被引用 | 删除死类型，移除 `Document.root` 字段 |
+| P1 | `ModifyDemo` 组件存在但从未挂载 | 替换为 deprecation stub |
+| P1 | `npm run lint` 调 `eslint` 但 ESLint 未安装，命令直接失败 | 替换为 `scripts/lint.mjs` 零依赖自定义 linter |
+| P1 | `exportNodeFragment` store action 已实现但 UI 无入口 | FormEditor 新增「📋 导出片段」按钮 |
+| P1 | `getRecentFiles` hook + `file:getRecent` IPC 已注册但 UI 无入口 | 新增 `file:openByPath` IPC；Toolbar 新增「最近」下拉菜单 |
+| P2 | Electron 模式下 Ctrl+Z 同时被菜单 accelerator 和 DOM keydown 触发，导致双撤销 | App.tsx 全局 keydown 仅在 `window.electronAPI.menu` 不可用时启用 |
+| 测试 | 无 version:create 单测，无 openBy-path 单测 | 新增 `tests/version-create.test.ts`（7 例）与 `tests/open-by-path.test.ts`（6 例）；两文件共 13 例 |
+
+

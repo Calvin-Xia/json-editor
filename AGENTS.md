@@ -37,32 +37,43 @@ json-editor/
 │   ├── preload.ts               # contextBridge: exposes electronAPI
 │   └── ipc/
 │       ├── index.ts             # registerIpcHandlers()
-│       └── fileHandlers.ts      # File I/O: open/save/autosave/version
+│       └── fileHandlers.ts      # File I/O: open/save/autosave/version/recent
 │
 ├── src/                         # Renderer process (React)
 │   ├── types/                   # TypeScript type definitions
 │   │   ├── treeModel.ts         # TreeNode, TreeState, PathSegment
-│   │   ├── document.ts          # Document, JSONNode, ParseError
+│   │   ├── document.ts          # Document, ParseError, ParseStatus
 │   │   └── ipc.ts               # ElectronAPI interface + Window augmentation
-│   ├── store/                   # Zustand state management
-│   │   ├── documentStore.ts     # Document state: open/save/parse/updateNodeValue
-│   │   ├── treeStore.ts         # Tree state: expand/collapse/search/selection
-│   │   └── uiStore.ts           # UI state: sidebar width, search visibility
+│   ├── store/                   # Zustand state management (TWO stores)
+│   │   ├── documentStore.ts     # Document state + undo/redo (zundo) + IPC calls
+│   │   └── treeStore.ts         # Tree state: expand/collapse/search/selection
+│   │   # uiStore.ts has been removed as dead code (see Architecture Notes below).
 │   ├── core/                    # Business logic (framework-agnostic, pure functions)
-│   │   ├── parser/              # JSON5 parsing and serialization
-│   │   └── treeModel/           # Tree conversion, path utils, state operations
+│   │   ├── parser/              # JSON5 parsing, serialization, AST operations
+│   │   ├── treeModel/           # Tree conversion, path utils, state operations
+│   │   ├── diff/                # Path-level + text-level diff
+│   │   └── validation/          # Empty/duplicate key detection
 │   ├── hooks/                   # React hooks
-│   │   ├── useIPC.ts            # Menu event listeners
-│   │   └── useFileOperations.ts # File ops hook
+│   │   ├── useIPC.ts            # Menu event listeners (graceful fallback when no Electron)
+│   │   ├── useFileOperations.ts # File ops hook (open/save/autosave/version/recent)
+│   │   ├── useAutosave.ts       # 5s debounce .tmp autosave + recovery hook
+│   │   └── useClipboardPaste.ts # Global paste handler for JSON content
 │   ├── components/              # React UI components
 │   │   ├── TreeView/            # Tree navigation with search
-│   │   ├── FormEditor/          # Node info display (WIP)
-│   │   ├── Toolbar/             # Open/Save/Undo/Redo buttons
-│   │   ├── StatusBar/           # File path, encoding, parse status
+│   │   ├── FormEditor/          # Node info + add/delete/move for object/array, value editor
+│   │   ├── Toolbar/             # Open/Recent/Save/SaveAs/Undo/Redo + Version/Settings
+│   │   ├── StatusBar/           # File path, encoding, modified indicator, parse status
 │   │   ├── RawPreview/          # Read-only raw content preview
-│   │   ├── ModifyDemo/          # Demo: modify node value by key
+│   │   ├── DiffPreview/         # Save-time path-change + text-diff modal
+│   │   ├── VersionHistory/      # Version list, preview, rollback
+│   │   ├── RecoveryDialog/      # Crash-recovery dialog (.tmp autosave)
+│   │   ├── DropZone/            # Drag-and-drop file open
 │   │   └── ParseError/          # Parse error display
+│   │   # ModifyDemo/ has been removed as it was never mounted (see Architecture Notes below).
 │   └── styles/                  # CSS custom properties + global styles
+│
+├── scripts/
+│   └── lint.mjs                 # Zero-dep custom linter (no console.log in src, no any)
 │
 ├── tests/                       # Vitest tests (node environment)
 ├── JSON-JSON5编辑器PRD.md        # Product requirements document (Chinese)
@@ -245,6 +256,46 @@ describe('Feature Name', () => {
 - `TreeNodeCache` for O(1) path lookups
 
 **State Management:**
-- Three separate Zustand stores (no combined root store)
-- Stores call `window.electronAPI` directly for file operations
-- Complex state operations extracted to pure functions in `core/treeModel/operations.ts`
+- Two Zustand stores with a clear separation of concerns:
+  - `documentStore` (in `src/store/documentStore.ts`) — owns the current `Document`, parse status,
+    diff-preview state, undo/redo history (via `zundo`), and document-mutation actions
+    (open, save, updateNodeValue, addField/deleteField/addArrayItem/deleteArrayItem/moveArrayItem,
+    exportNodeFragment). It directly calls `window.electronAPI.*` for file and version operations.
+  - `treeStore` (in `src/store/treeStore.ts`) — owns the derived `TreeNode` root plus
+    expand/collapse, selection, and search-match state. It does not touch the file system.
+- A third historical file (`src/store/uiStore.ts`) was removed because none of its declared
+  fields (`sidebarWidth`, `isSearchVisible`, `searchQuery`, `selectedNodeId`) were ever read or
+  written by any UI component. If a future feature needs UI preferences (resizable sidebar,
+  search-visibility toggle, last-selected-node memory), recreate this store **with concrete
+  consumers wired in from day one** so it does not become dead code again.
+- Complex state operations are extracted to pure functions in `core/treeModel/operations.ts`.
+
+**Version History (auto-snapshot on save):**
+- The PRD's V1 "保存文件 → 创建版本记录" requirement is implemented. Every successful
+  `file:save` and `file:saveAs` (where the source file already existed) takes a snapshot of
+  the pre-save `originalContent` and writes it under `<file>.versions/YYYYMMDD-HHmmss-mmm.json5`.
+- `handleVersionCreate` validates that the target is a regular file, writes atomically via
+  `.tmp` + `rename`, and prunes the oldest entries so no more than `MAX_VERSIONS = 20` are
+  retained. Tests in `tests/version-create.test.ts` cover creation, extension preservation,
+  missing-file rejection, and pruning.
+
+**Recent Files UI:**
+- The `file:getRecent` and `file:openByPath` IPC channels (registered in
+  `electron/ipc/index.ts` and exposed via preload) are surfaced by a "最近" dropdown in
+  `Toolbar/index.tsx`. The dropdown auto-refreshes on document load/save and supports
+  click-outside-to-close.
+
+**Lint script:**
+- `npm run lint` runs `scripts/lint.mjs`, a zero-dependency custom linter that enforces:
+  - No `: any` / `as any` in TypeScript source (except `tests/`).
+  - No `console.log` inside `src/`.
+- `npm run lint:eslint` is the aspirational target (full `eslint:recommended` +
+  `@typescript-eslint` + `react-hooks`); the npm packages are not installed yet. The
+  migration path is documented in `scripts/lint.mjs`.
+
+**Keyboard shortcuts:**
+- In Electron mode, `Ctrl+Z` / `Ctrl+Y` are handled by the application menu accelerator
+  (`electron/main.ts`) which forwards them to the renderer via the `menu:undo` / `menu:redo`
+  IPC channels. The renderer's global `keydown` handler in `App.tsx` is **gated** on
+  `window.electronAPI.menu` being absent: in Electron mode it stays dormant to avoid
+  double-firing undo/redo. In pure browser mode (no Electron menu) it takes over.

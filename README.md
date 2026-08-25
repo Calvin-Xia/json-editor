@@ -5,13 +5,16 @@
 ## 功能特性
 
 - 📁 **树形导航** - 可视化 JSON 结构，支持展开/折叠
-- ✏️ **表单编辑** - 直观的表单界面编辑节点值
+- ✏️ **表单编辑** - 直观的表单界面编辑节点值；Object 新增/删除字段、Array 增/删/上移/下移
 - 🔍 **搜索功能** - 支持按键名和值搜索（不区分大小写）
-- ↩️ **撤销/重做** - 完整的撤销重做支持
-- 💾 **保存预览** - 保存前显示变更差异
-- 📋 **剪贴板粘贴** - 直接粘贴 JSON 内容
-- 🕐 **版本历史** - 文件版本管理（Electron 模式）
+- ↩️ **撤销/重做** - 基于 zundo 的完整撤销/重做（含新建 future 栈自动清空）
+- 💾 **保存预览** - 保存前显示路径级变更 + 文本差异
+- 📋 **剪贴板粘贴** - 直接粘贴 JSON 内容（焦点在输入框时跳过以避免冲突）
+- 🕐 **版本历史** - 每次保存自动快照，最多保留 20 个版本，支持预览/回滚
+- 🕘 **最近文件** - Toolbar 下拉打开，跨会话可持久
+- 📂 **拖拽打开** - 支持 .json / .json5 文件拖拽
 - 🎨 **Raw 预览** - 只读的原始 JSON 内容预览
+- 📑 **导出片段** - 选中节点一键复制到剪贴板
 
 ## 技术栈
 
@@ -101,32 +104,41 @@ json-editor/
 │   ├── preload.ts               # contextBridge：暴露 electronAPI
 │   └── ipc/
 │       ├── index.ts             # registerIpcHandlers()
-│       └── fileHandlers.ts      # 文件 I/O：打开/保存/自动保存/版本
+│       └── fileHandlers.ts      # 文件 I/O：打开/保存/自动保存/版本/最近
 │
 ├── src/                         # 渲染进程 (React)
 │   ├── types/                   # TypeScript 类型定义
 │   │   ├── treeModel.ts         # TreeNode, TreeState, PathSegment
-│   │   ├── document.ts          # Document, JSONNode, ParseError
+│   │   ├── document.ts          # Document, ParseError, ParseStatus
 │   │   └── ipc.ts               # ElectronAPI 接口 + Window 声明
-│   ├── store/                   # Zustand 状态管理
-│   │   ├── documentStore.ts     # 文档状态：打开/保存/解析/更新值
-│   │   ├── treeStore.ts         # 树状态：展开/折叠/搜索/选择
-│   │   └── uiStore.ts           # UI 状态：侧边栏宽度、搜索可见性
+│   ├── store/                   # Zustand 状态管理（仅两个 store）
+│   │   ├── documentStore.ts     # 文档状态 + undo/redo（zundo）+ IPC 调用
+│   │   └── treeStore.ts         # 树状态：展开/折叠/搜索/选择
 │   ├── core/                    # 业务逻辑（框架无关，纯函数）
-│   │   ├── parser/              # JSON5 解析和序列化
-│   │   └── treeModel/           # 树转换、路径工具、状态操作
+│   │   ├── parser/              # JSON5 解析/序列化/AST 操作
+│   │   ├── treeModel/           # 树转换、路径工具、状态操作
+│   │   ├── diff/                # 路径级 + 文本级 diff
+│   │   └── validation/          # 空键/重复键检测
 │   ├── hooks/                   # React Hooks
-│   │   ├── useIPC.ts            # 菜单事件监听
-│   │   └── useFileOperations.ts # 文件操作 Hook
+│   │   ├── useIPC.ts            # 菜单事件监听（无 IPC 时优雅降级）
+│   │   ├── useFileOperations.ts # 文件操作 Hook
+│   │   ├── useAutosave.ts       # 5s debounce 自动保存 + 恢复
+│   │   └── useClipboardPaste.ts # 全局粘贴处理
 │   ├── components/              # React UI 组件
-│   │   ├── TreeView/            # 树形导航（带搜索）
-│   │   ├── FormEditor/          # 节点信息编辑
-│   │   ├── Toolbar/             # 工具栏按钮
-│   │   ├── StatusBar/           # 状态栏
-│   │   ├── RawPreview/          # 原始内容预览
-│   │   ├── ModifyDemo/          # 演示：按键名修改值
+│   │   ├── TreeView/            # 树形导航 + 搜索
+│   │   ├── FormEditor/          # 节点信息 + 增删改（object/array/primitive）
+│   │   ├── Toolbar/             # 打开/最近/保存/另存为/撤销/重做/版本/设置
+│   │   ├── StatusBar/           # 文件路径、编码、修改、解析状态
+│   │   ├── RawPreview/          # 只读原始 JSON 预览
+│   │   ├── DiffPreview/         # 保存前路径变更 + 文本 diff
+│   │   ├── VersionHistory/      # 版本列表、预览、回滚
+│   │   ├── RecoveryDialog/      # 崩溃恢复对话框
+│   │   ├── DropZone/            # 拖拽打开文件
 │   │   └── ParseError/          # 解析错误显示
 │   └── styles/                  # CSS 自定义属性 + 全局样式
+│
+├── scripts/
+│   └── lint.mjs                 # 零依赖自定义 linter
 │
 ├── tests/                       # Vitest 测试 (node 环境)
 ├── JSON-JSON5编辑器PRD.md        # 产品需求文档（中文）
@@ -145,7 +157,7 @@ json-editor/
 | `npm run test` | 运行所有测试 |
 | `npm run test:watch` | 监听模式运行测试 |
 | `npm run typecheck` | TypeScript 类型检查 |
-| `npm run lint` | ESLint 代码检查 |
+| `npm run lint` | 运行 scripts/lint.mjs（零依赖自定义 linter：禁用 any、`src/` 中禁用 console.log） |
 
 ## 开发指南
 
