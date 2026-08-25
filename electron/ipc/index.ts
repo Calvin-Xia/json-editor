@@ -1,19 +1,23 @@
-import { ipcMain, dialog, app } from 'electron';
-import * as fs from 'fs';
-import * as path from 'path';
+import { ipcMain } from 'electron';
 import {
   handleFileOpen,
+  handleFileOpenByPath,
   handleFileSave,
   handleFileSaveAs,
   handleGetRecent,
   handleAutosaveWrite,
   handleAutosaveLoad,
+  handleVersionCreate,
   handleVersionList,
   handleVersionRestore,
 } from './fileHandlers';
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('file:open', handleFileOpen);
+  ipcMain.handle('file:openByPath', async (_event, args) => {
+    const { filePath } = args as { filePath: string };
+    return handleFileOpenByPath(filePath);
+  });
   ipcMain.handle('file:save', async (_event, args) => {
     const { filePath, content } = args as { filePath: string; content: string };
     return handleFileSave(filePath, content);
@@ -30,6 +34,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('autosave:load', async (_event, args) => {
     const { filePath } = args as { filePath: string };
     return handleAutosaveLoad(filePath);
+  });
+  ipcMain.handle('version:create', async (_event, args) => {
+    const { filePath, content } = args as { filePath: string; content: string };
+    return handleVersionCreate(filePath, content);
   });
   ipcMain.handle('version:list', async (_event, args) => {
     const { filePath } = args as { filePath: string };

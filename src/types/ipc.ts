@@ -23,6 +23,7 @@ export interface VersionInfo {
 export interface ElectronAPI {
   file: {
     open: () => Promise<FileOpenResult | null>;
+    openByPath: (filePath: string) => Promise<FileOpenResult | null>;
     save: (filePath: string, content: string) => Promise<SaveResult>;
     saveAs: (content: string, defaultPath?: string) => Promise<string | null>;
     getRecent: () => Promise<string[]>;
@@ -32,6 +33,7 @@ export interface ElectronAPI {
     load: (filePath: string) => Promise<AutosaveData | null>;
   };
   version: {
+    create: (filePath: string, content: string) => Promise<VersionInfo | null>;
     list: (filePath: string) => Promise<VersionInfo[]>;
     restore: (filePath: string, versionId: string) => Promise<string>;
   };

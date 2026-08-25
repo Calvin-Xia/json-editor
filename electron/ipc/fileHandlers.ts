@@ -2,7 +2,6 @@ import { dialog, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const RECENT_FILES_KEY = 'recentFiles';
 const MAX_RECENT_FILES = 10;
 
 interface FileOpenResult {
@@ -82,6 +81,39 @@ export async function handleFileOpen(): Promise<FileOpenResult | null> {
     };
   } catch (error) {
     console.error('Failed to read file:', error);
+    return null;
+  }
+}
+
+/**
+ * Open a file by absolute path (used by Recent Files). Does NOT show a dialog.
+ * Validates the path exists and looks like a JSON file (by extension).
+ */
+export async function handleFileOpenByPath(filePath: string): Promise<FileOpenResult | null> {
+  // Reject obviously bad inputs (null bytes) before they reach the FS layer
+  if (!filePath || filePath.includes('\0')) {
+    return null;
+  }
+
+  try {
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    addToRecentFiles(filePath);
+    return {
+      filePath,
+      content,
+      encoding: 'UTF-8',
+    };
+  } catch (error) {
+    console.error('Failed to read file by path:', error);
     return null;
   }
 }
@@ -211,6 +243,98 @@ export async function handleAutosaveLoad(filePath: string): Promise<AutosaveData
 
 function getVersionDir(filePath: string): string {
   return `${filePath}.versions`;
+}
+
+function getVersionExtension(filePath: string): string {
+  return filePath.toLowerCase().endsWith('.json') ? '.json' : '.json5';
+}
+
+/**
+ * Format a timestamp for use as a version filename (filesystem-safe).
+ * Format: YYYYMMDD-HHmmss-mmm (local time, millisecond precision to avoid collisions).
+ */
+function formatVersionTimestamp(date: Date): string {
+  const pad = (n: number, width = 2): string => String(n).padStart(width, '0');
+  return (
+    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
+    `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}` +
+    `-${pad(date.getMilliseconds(), 3)}`
+  );
+}
+
+/**
+ * Keep only the most recent MAX_VERSIONS entries in the version directory.
+ * Older entries are deleted (oldest first by mtime).
+ */
+const MAX_VERSIONS = 20;
+
+function pruneOldVersions(versionDir: string): void {
+  try {
+    const files = fs.readdirSync(versionDir);
+    const stats = files
+      .filter((f) => f.endsWith('.json5') || f.endsWith('.json'))
+      .map((f) => {
+        const fullPath = path.join(versionDir, f);
+        const stat = fs.statSync(fullPath);
+        return { fullPath, mtime: stat.mtime.getTime() };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+
+    if (stats.length <= MAX_VERSIONS) return;
+
+    const toDelete = stats.slice(MAX_VERSIONS);
+    for (const entry of toDelete) {
+      try {
+        fs.unlinkSync(entry.fullPath);
+      } catch (error) {
+        console.error(`Failed to delete old version ${entry.fullPath}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to prune old versions:', error);
+  }
+}
+
+export async function handleVersionCreate(filePath: string, content: string): Promise<VersionInfo | null> {
+  const versionDir = getVersionDir(filePath);
+
+  // Validate filePath points to an existing regular file (versions only make sense for real files)
+  try {
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  try {
+    if (!fs.existsSync(versionDir)) {
+      fs.mkdirSync(versionDir, { recursive: true });
+    }
+
+    const ext = getVersionExtension(filePath);
+    const now = new Date();
+    const id = `${formatVersionTimestamp(now)}${ext}`;
+    const fullPath = path.join(versionDir, id);
+
+    // Atomic write: write to .tmp then rename, so a crash mid-write doesn't corrupt the version history.
+    const tmpPath = `${fullPath}.tmp`;
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    fs.renameSync(tmpPath, fullPath);
+
+    pruneOldVersions(versionDir);
+
+    const finalStats = fs.statSync(fullPath);
+    return {
+      id,
+      timestamp: finalStats.mtime.getTime(),
+      size: finalStats.size,
+    };
+  } catch (error) {
+    console.error('Failed to create version:', error);
+    return null;
+  }
 }
 
 export async function handleVersionList(filePath: string): Promise<VersionInfo[]> {

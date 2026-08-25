@@ -113,7 +113,6 @@ export const useDocumentStore = create<DocumentStore>()(
               const doc: Document = {
                 filePath: result.filePath,
                 originalContent: result.content,
-                root: null,
                 jsonNode: parseResult.node,
                 parseError: null,
                 isModified: false,
@@ -125,7 +124,6 @@ export const useDocumentStore = create<DocumentStore>()(
               const doc: Document = {
                 filePath: result.filePath,
                 originalContent: result.content,
-                root: null,
                 jsonNode: null,
                 parseError: parseResult.error as ParseError,
                 isModified: false,
@@ -152,7 +150,6 @@ export const useDocumentStore = create<DocumentStore>()(
             const doc: Document = {
               filePath: filePath ?? null,
               originalContent: content,
-              root: null,
               jsonNode: parseResult.node,
               parseError: null,
               isModified: false,
@@ -164,7 +161,6 @@ export const useDocumentStore = create<DocumentStore>()(
             const doc: Document = {
               filePath: filePath ?? null,
               originalContent: content,
-              root: null,
               jsonNode: null,
               parseError: parseResult.error as ParseError,
               isModified: false,
@@ -250,10 +246,19 @@ export const useDocumentStore = create<DocumentStore>()(
             ? serializeNode(document.jsonNode)
             : document.originalContent;
 
+          // Snapshot the previous on-disk content BEFORE we overwrite it, so users can roll back to it.
+          // Skip when saving a brand-new file (no previous on-disk content to snapshot).
+          const previousContent = document.originalContent;
+
           if (pendingType === 'save') {
             if (!document.filePath) return;
             const result = await window.electronAPI.file.save(document.filePath, content);
             if (result.success) {
+              // Fire-and-forget version snapshot; failures here must not block the actual save.
+              void window.electronAPI.version.create(document.filePath, previousContent)
+                .catch((error) => {
+                  console.error('Failed to snapshot version:', error);
+                });
               set({ document: { ...document, isModified: false, originalContent: content } });
             } else {
               set({ error: result.error || '保存失败' });
@@ -261,6 +266,13 @@ export const useDocumentStore = create<DocumentStore>()(
           } else {
             const newFilePath = await window.electronAPI.file.saveAs(content, document.filePath || undefined);
             if (newFilePath) {
+              // Only snapshot when overwriting an existing file; for brand-new saveAs there is nothing to preserve.
+              if (document.filePath) {
+                void window.electronAPI.version.create(document.filePath, previousContent)
+                  .catch((error) => {
+                    console.error('Failed to snapshot version:', error);
+                  });
+              }
               set({
                 document: {
                   ...document,

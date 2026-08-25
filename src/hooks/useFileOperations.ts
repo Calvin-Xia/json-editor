@@ -21,6 +21,26 @@ export function useFileOperations() {
     }
   }, [setParseStatus, setError]);
 
+  const openFileByPath = useCallback(
+    async (filePath: string): Promise<FileOpenResult | null> => {
+      try {
+        setParseStatus('parsing');
+        const result = await window.electronAPI.file.openByPath(filePath);
+        if (result) {
+          return result;
+        }
+        setError('文件不存在或无法读取');
+        setParseStatus('idle');
+        return null;
+      } catch (error) {
+        setError(String(error));
+        setParseStatus('error');
+        return null;
+      }
+    },
+    [setParseStatus, setError],
+  );
+
   const saveFile = useCallback(
     async (content: string): Promise<boolean> => {
       if (!document?.filePath) return false;
@@ -95,6 +115,20 @@ export function useFileOperations() {
     }
   }, []);
 
+  const createVersion = useCallback(
+    async (content: string): Promise<VersionInfo | null> => {
+      if (!document?.filePath) return null;
+
+      try {
+        return await window.electronAPI.version.create(document.filePath, content);
+      } catch (error) {
+        console.error('Failed to create version:', error);
+        return null;
+      }
+    },
+    [document?.filePath],
+  );
+
   const restoreVersion = useCallback(
     async (versionId: string): Promise<string | null> => {
       if (!document?.filePath) return null;
@@ -111,12 +145,14 @@ export function useFileOperations() {
 
   return {
     openFile,
+    openFileByPath,
     saveFile,
     saveFileAs,
     getRecentFiles,
     writeAutosave,
     loadAutosave,
     listVersions,
+    createVersion,
     restoreVersion,
   };
 }

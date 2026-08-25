@@ -25,6 +25,8 @@ export interface VersionInfo {
 const electronAPI = {
   file: {
     open: (): Promise<FileOpenResult | null> => ipcRenderer.invoke('file:open'),
+    openByPath: (filePath: string): Promise<FileOpenResult | null> =>
+      ipcRenderer.invoke('file:openByPath', { filePath }),
     save: (filePath: string, content: string): Promise<SaveResult> =>
       ipcRenderer.invoke('file:save', { filePath, content }),
     saveAs: (content: string, defaultPath?: string): Promise<string | null> =>
@@ -38,6 +40,8 @@ const electronAPI = {
       ipcRenderer.invoke('autosave:load', { filePath }),
   },
   version: {
+    create: (filePath: string, content: string): Promise<VersionInfo | null> =>
+      ipcRenderer.invoke('version:create', { filePath, content }),
     list: (filePath: string): Promise<VersionInfo[]> =>
       ipcRenderer.invoke('version:list', { filePath }),
     restore: (filePath: string, versionId: string): Promise<string> =>
