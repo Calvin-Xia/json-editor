@@ -29,11 +29,27 @@ const FormEditor: React.FC = () => {
     deleteArrayItem,
     moveArrayItem,
     updateNodeValue,
+    exportNodeFragment,
   } = useDocumentStore();
   const { selectedPath } = useTreeStore();
 
   const [showAddField, setShowAddField] = useState(false);
   const [showAddArrayMenu, setShowAddArrayMenu] = useState(false);
+  const [exportToast, setExportToast] = useState<string | null>(null);
+
+  const handleExportFragment = useCallback(
+    async (path: string) => {
+      const ok = await exportNodeFragment(path);
+      if (ok) {
+        setExportToast('已复制为 JSON 片段到剪贴板');
+        setTimeout(() => setExportToast(null), 2000);
+      } else {
+        setExportToast('导出失败');
+        setTimeout(() => setExportToast(null), 2000);
+      }
+    },
+    [exportNodeFragment],
+  );
 
   const selectedNode =
     selectedPath !== null ? nodeCache.findByPath(selectedPath) : null;
@@ -197,6 +213,15 @@ const FormEditor: React.FC = () => {
               </span>
             </div>
           )}
+          <div className="info-actions">
+            <button
+              className="export-fragment-btn"
+              title="导出当前节点为 JSON 片段到剪贴板"
+              onClick={() => handleExportFragment(selectedNode.path)}
+            >
+              📋 导出片段
+            </button>
+          </div>
         </div>
 
         {isObject && (
@@ -301,6 +326,7 @@ const FormEditor: React.FC = () => {
           </div>
         )}
       </div>
+      {exportToast && <div className="form-toast">{exportToast}</div>}
     </div>
   );
 };
